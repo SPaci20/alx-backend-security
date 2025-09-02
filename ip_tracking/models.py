@@ -72,3 +72,16 @@ class BlockedIP(models.Model):
 
     def __str__(self):
         return f"Blocked IP: {self.ip_address}"
+
+class SuspiciousIP(models.Model):
+    ip_address = models.GenericIPAddressField(unique=True)
+    reason = models.CharField(max_length=255)
+    flagged_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-flagged_at']
+        verbose_name = "Suspicious IP"
+        verbose_name_plural = "Suspicious IPs"
+
+    def __str__(self):
+        return f"{self.ip_address} - {self.reason}"
