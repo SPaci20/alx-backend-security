@@ -1,12 +1,15 @@
 import logging
 from django.utils import timezone
 from django.utils.deprecation import MiddlewareMixin
-from .models import RequestLog
+from django.http import HttpResponseForbidden
+from django.core.cache import cache
+from .models import RequestLog, BlockedIP
 
 
 class IPTrackingMiddleware(MiddlewareMixin):
     """
     Middleware to log IP address, timestamp, and path of every incoming request.
+    Also blocks requests from IPs in the BlockedIP model.
     """
     
     def __init__(self, get_response=None):
@@ -15,11 +18,22 @@ class IPTrackingMiddleware(MiddlewareMixin):
     
     def process_request(self, request):
         """
-        Process incoming request and log the details.
+        Process incoming request, check if IP is blocked, and log the details.
         """
         try:
             # Get the client's IP address
             ip_address = self.get_client_ip(request)
+            
+            # Check if IP is blocked
+            if self.is_ip_blocked(ip_address):
+                self.logger.warning(
+                    f"Blocked request from IP: {ip_address}, "
+                    f"Path: {request.get_full_path()}"
+                )
+                return HttpResponseForbidden(
+                    "<h1>403 Forbidden</h1>"
+                    "<p>Your IP address has been blocked.</p>"
+                )
             
             # Get the request path
             path = request.get_full_path()
@@ -39,9 +53,32 @@ class IPTrackingMiddleware(MiddlewareMixin):
             
         except Exception as e:
             # Log any errors but don't interrupt the request flow
-            self.logger.error(f"Error logging request: {str(e)}")
+            self.logger.error(f"Error processing request: {str(e)}")
         
         return None  # Continue processing the request
+    
+    def is_ip_blocked(self, ip_address):
+        """
+        Check if an IP address is in the blocked list.
+        Uses caching to improve performance.
+        """
+        cache_key = f"blocked_ip_{ip_address}"
+        
+        # Try to get from cache first
+        is_blocked = cache.get(cache_key)
+        
+        if is_blocked is None:
+            # Not in cache, check database
+            try:
+                BlockedIP.objects.get(ip_address=ip_address)
+                is_blocked = True
+            except BlockedIP.DoesNotExist:
+                is_blocked = False
+            
+            # Cache the result for 5 minutes
+            cache.set(cache_key, is_blocked, 300)
+        
+        return is_blocked
     
     def get_client_ip(self, request):
         """
