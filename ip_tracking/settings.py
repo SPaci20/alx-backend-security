@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from django.urls import path, include
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'ip_tracking'
+    'ip_tracking',
+    'ratelimit',
 ]
 
 MIDDLEWARE = [
@@ -148,3 +150,14 @@ LOGGING = {
         },
     },
 }
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+    }
+}
+urlpatterns = [
+    ...,
+    path("ip_tracking/", include("ip_tracking.urls")),
+]

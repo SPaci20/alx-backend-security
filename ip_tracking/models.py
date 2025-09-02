@@ -5,7 +5,7 @@ from django.utils import timezone
 class RequestLog(models.Model):
     """
     Model to store request logging information including IP address,
-    timestamp, and request path.
+    timestamp, request path, and geolocation data.
     """
     ip_address = models.GenericIPAddressField(
         help_text="IP address of the client making the request"
@@ -18,6 +18,18 @@ class RequestLog(models.Model):
         max_length=500,
         help_text="Request path/URL"
     )
+    country = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Country of the IP address"
+    )
+    city = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="City of the IP address"
+    )
 
     class Meta:
         ordering = ['-timestamp']
@@ -25,7 +37,13 @@ class RequestLog(models.Model):
         verbose_name_plural = "Request Logs"
 
     def __str__(self):
-        return f"{self.ip_address} - {self.path} at {self.timestamp}"
+        location = ""
+        if self.city and self.country:
+            location = f" from {self.city}, {self.country}"
+        elif self.country:
+            location = f" from {self.country}"
+        
+        return f"{self.ip_address}{location} - {self.path} at {self.timestamp}"
 
 
 class BlockedIP(models.Model):
